@@ -1,9 +1,11 @@
 package com.kostyan.fooddash.model;
 
+
 import jakarta.persistence.*;
 
 @Entity
 @Table(name = "products")
+
 public class Product {
 
     @Id
@@ -18,12 +20,30 @@ public class Product {
 
     private String description;
 
+    // ==========================================
+    // СЛОЖНЫЙ МОСТ: МНОГО ПРОДУКТОВ К ОДНОЙ КАТЕГОРИИ
+    // ==========================================
+
+    @ManyToOne(fetch = FetchType.LAZY) // Указываем тип связи для Hibernate
+    @JoinColumn(name = "category_id", nullable = false) // Создаём в таблице продуктов физическую колонку-ссылку
+    private Category category;
+
+    // Сразу дописываем Геттер и Сеттер для нового поля, чтобы Java могла с ним работать:
+    public Category getCategory() {
+        return category;
+    }
+
+    public void setCategory(Category category) {
+        this.category = category;
+    }
+
+
     // Пустой конструктор, обязательный для Hibernate
-   public Product() {
+    public Product() {
     }
 
     // Удобный конструктор для создания блюд
-   public Product(String name, double price, String description) {
+    public Product(String name, double price, String description) {
         this.name = name;
         this.price = price;
         this.description = description;
