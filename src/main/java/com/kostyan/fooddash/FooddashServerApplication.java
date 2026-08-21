@@ -39,7 +39,7 @@ public class FooddashServerApplication {
                 productRepository.save(burger);
 
                 System.out.println("✅ Магия Many-to-One сработала! Категории и продукты связаны намертво!");
-            } else System.out.println("В базе присутствуют данные ! Стартовый скрипт пропущен .");
+            } else System.out.println("В базе присутствуют данные ! Стартовый скрипт пропущен ч.");
 
         };
     }
