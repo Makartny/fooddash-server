@@ -42,5 +42,15 @@ public class FooddashServerApplication {
             } else System.out.println("В базе присутствуют данные ! Стартовый скрипт пропущен ч.");
 
         };
+    } // end CommandlineRunner
+
+    // ==========================================
+    // СЕЙФ БЕЗОПАСНОСТИ: СОЗДАЕМ КРИПТО-ИНСТРУМЕНТ
+    // ==========================================
+    @org.springframework.context.annotation.Bean
+    public org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder passwordEncoder() {
+        return new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
     }
-}
+
+
+} //  end class FooddashServerApplication

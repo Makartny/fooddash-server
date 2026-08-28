@@ -11,56 +11,62 @@ import java.util.Optional;
 public class UserController {
 
     private final UserRepository userRepository;
+    // НАШ НОВЫЙ КРИПТОГРАФИЧЕСКИЙ ПУЛЬТ ДЛЯ ШИФРОВАНИЯ ПАРОЛЕЙ!
+    private final org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder passwordEncoder;
 
-    // Спринг сам подставит сюда наш новый пульт управления пользователями
-    public UserController(UserRepository userRepository) {
+    // Спринг сам зайдёт в сейф памяти, достанет UserRepository и наш BCryptPasswordEncoder, и вложит в этот конструктор!
+    public UserController(UserRepository userRepository,
+                          org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
-    // РУЧКА РЕГИСТРАЦИИ: Сюда будут стучаться новые клиенты!
+    // ==========================================
+    // ВХОДЯЩИЕ ВОРОТА: РЕГИСТРАЦИЯ С ШИФРОВАНИЕМ
+    // ==========================================
     @PostMapping("/register")
     public String registerUser(@RequestBody User newUser) {
 
-        // 1. Проверяем нашим кастомным методом, нет ли уже человека с таким логином
+        // 1. Проверяем, свободен ли логин
         if (userRepository.findByUsername(newUser.getUsername()).isPresent()) {
-            return "❌ Ошибка: Пользователь с логином '" + newUser.getUsername() + "' уже зарегистрирован в системе!";
+            return "❌ Ошибка: Пользователь с логином '" + newUser.getUsername() + "' уже зарегистрирован!";
         }
-        // 2. Назначаем новичку стандартную роль CLIENT (Клиент)
-        newUser.setRole("CLIENT");
 
-        // 3. Сохраняем пользователя в Докер!
+        // ШАГ 2: БРОНЕБОЙНОЕ ХЭШИРОВАНИЕ ПАРОЛЯ ПЕРЕД КЛАДОВКОЙ!
+        // Берем сырой текст, пропускаем через BCrypt и перезаписываем его обратно в объект юзера!
+        String hashedPassword = passwordEncoder.encode(newUser.getPassword());
+        newUser.setPassword(hashedPassword);
+
+        // 3. Ставим роль по умолчанию и сохраняем зашифрованного юзера в Докер!
+        newUser.setRole("CLIENT");
         userRepository.save(newUser);
+
         return "✅ Успех! Пользователь '" + newUser.getUsername() + "' успешно добавлен в систему FoodDash!";
-    } // end registerUser
+    }
 
     // ==========================================
     // ВХОДЯЩИЕ ВОРОТА: АВТОРИЗАЦИЯ И ВХОД (ЛОГИН)
     // ==========================================
-
-    @PostMapping("/login") // Слушаем POST-запросы на адрес /login
+    @PostMapping("/login")
     public String loginUser(@RequestBody User loginData) {
-        // @RequestBody поймает JSON с логином/паролем из Postman и превратит в объект loginData
 
-        // ШАГ 1: Пытаемся найти пользователя в базе данных Докера по его логину
+        // 1. Ищем человека по логину в Докере
         Optional<User> userFromDb = userRepository.findByUsername(loginData.getUsername());
 
-        // ШАГ 2: Проверяем, существует ли вообще человек с таким логином
         if (userFromDb.isEmpty()) {
             return "❌ Ошибка: Пользователь с логином '" + loginData.getUsername() + "' не найден в системе!";
         }
 
-        // ШАГ 3: Если человек найден, достаём его из обёртки Optional
         User realUser = userFromDb.get();
 
-        // ШАГ 4: Проверяем, совпадает ли присланный пароль с тем, что лежит в базе данных
-        if (!realUser.getPassword().equals(loginData.getPassword())) {
+        // ШАГ 4: СИНЬОРСКАЯ СВЕРКА ЧЕРЕЗ КРИПТО-МАТЧИНГ!
+        // Передаем два параметра: (СыройПарольИзИнтернета, ЗашифрованныйПарольИзБазы)
+        // Метод .matches() сам поймет, подходит ли ключ к замку!
+        if (!passwordEncoder.matches(loginData.getPassword(), realUser.getPassword())) {
             return "❌ Ошибка: Неверный пароль! Доступ заблокирован!";
         }
 
-        // ШАГ 5: Если все проверки пройдены — выдаём триумфальный пропуск!
-        return "🔑 Доступ разрешён! Добро пожаловать в FoodDash, " + realUser.getUsername() + " [" + realUser.getRole() + "]!";
-
-    } // end method loginUser
-
-
-} // end class UserController
+        return "🔑 Доступ разрешён! Добро пожаловать в FoodDash, " + realUser.getUsername() +
+                " [" + realUser.getRole() + "]!";
+    }
+}
