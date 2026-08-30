@@ -1,62 +1,68 @@
 package com.kostyan.fooddash.controller;
 
 import com.kostyan.fooddash.model.Order;
+import com.kostyan.fooddash.model.OrderItem;
 import com.kostyan.fooddash.model.User;
+import com.kostyan.fooddash.repository.OrderItemRepository;
 import com.kostyan.fooddash.repository.OrderRepository;
 import com.kostyan.fooddash.repository.UserRepository;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Optional;
 
-@RestController // Приказ Спрингу: «Этот класс — внешний пульт, он слушает интернет на порту 8080!»
+@RestController // Слушаем интернет на порту 8080
 public class OrderController {
-    // Объявляем два внутренних скрытых пульта для работы с Докером
+
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
+    private final OrderItemRepository orderItemRepository; // Наш третий пульт для корзины
 
-    // Конструктор: Спринг сам заглянет в свой сейф, достанет эти пульты и вложит их в круглые скобки!
-    public OrderController(OrderRepository orderRepository, UserRepository userRepository) {
+    // Конструктор: Спринг сам выдаёт нам в руки три этих инструмента из своего сейфа
+    public OrderController(OrderRepository orderRepository, UserRepository userRepository, OrderItemRepository orderItemRepository) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
+        this.orderItemRepository = orderItemRepository;
     }
 
-    // ==========================================
-    // ВХОДЯЩИЕ ВОРОТА: ОФОРМЛЕНИЕ НОВОГО ЗАКАЗА
-    // ==========================================
-    @PostMapping("/orders") // Ловим POST-метод на адрес /orders
-    public String createOrder(@RequestBody Order incomingOrder) {
-        // @RequestBody перехватит JSON из сети и превратит в объект incomingOrder
-
-        // ШАГ 1: Из прилетевшего заказа достаем объект пользователя и его логин
-        String customerUsername = incomingOrder.getUser().getUsername();
-
-        // ШАГ 2: Ищем этого пользователя в Докере через наш пульт userRepository
-        Optional<User> userFromDb = userRepository.findByUsername(customerUsername);
-
-        // ШАГ 3: Защитный капкан! Если человека с таким логином нет в базе — рубим операцию!
+    // ===================================================
+    // ЦЕНТРАЛЬНЫЙ УЗЕЛ: ОФОРМЛЕНИЕ ПОЛНОЦЕННОЙ КОРЗИНЫ
+    // ===================================================
+    @PostMapping("/orders")
+    public String createOrder(@RequestBody List<OrderItem> basket, @RequestParam String username) {
+        // 1. Из ссылки вытаскиваем логин и проверяем, есть ли такой покупатель в Докере
+        Optional<User> userFromDb = userRepository.findByUsername(username);
         if (userFromDb.isEmpty()) {
-            return "❌ Ошибка: Заказ отклонен! Пользователь '" + customerUsername + "' не зарегистрирован в системе!";
+            return "❌ Ошибка: Заказ отклонен! Пользователь '" + username + "' не зарегистрирован!";
         }
-
-        // ШАГ 4: Если пользователь найден, достаем его живой объект из обертки Optional
         User realUser = userFromDb.get();
 
-        // ШАГ 5: Привязываем этот реальный объект пользователя к нашему новому заказу
-        incomingOrder.setUser(realUser);
+        // 2. Сколотим в оперативной памяти пустой общий чек (Заказ)
+        Order newOrder = new Order();
+        newOrder.setUser(realUser); // Привязываем хозяина чека по его главному ключу!
+        newOrder.setStatus("PENDING"); // Выставляем стартовый статус
 
-        // ШАГ 6: Принудительно выставляем заказу стартовый статус "PENDING" (Ожидает обработки)
-        incomingOrder.setStatus("PENDING");
+        // 3. АВТОМАТИЧЕСКИЙ РАСЧЁТ СУММЫ ЗАКАЗА НА БЭКЕНДЕ
+        Double finalPrice = 0.0;
+        for (OrderItem item : basket) {
+            // Бежим по корзине: берём цену продукта и умножаем на его количество
+            finalPrice += item.getProduct().getPrice() * item.getQuantity();
+        }
+        newOrder.setTotalPrice(finalPrice); // Записываем итоговую сумму в чек
 
-        // ШАГ 7: Нажимаем встроенную кнопку .save() на пульте orderRepository и уносим чек в Докер!
-        orderRepository.save(incomingOrder);
+        // 4. Записываем ОБЩИЙ ЧЕК в Докер, чтобы база сгенерировала для него уникальный ID!
+        Order savedOrder = orderRepository.save(newOrder);
 
-        // ШАГ 8: Возвращаем триумфальный ответ в Postman!
-        return "📦 Успех! Заказ для пользователя '" + realUser.getUsername() + "' успешно оформлен! Статус: PENDING.";
+        // 5. РАСКЛАДЫВАЕМ ЕДУ ПО ПОЛОЧКАМ В ПЯТУЮ ТАБЛИЦУ (order_items)
+        for (OrderItem item : basket) {
+            item.setOrder(savedOrder); // Намертво привязываем этот кусочек еды к нашему созданному чеку!
+            orderItemRepository.save(item); // Уносим строчку в таблицу order_items Докера
+        }
 
-
-    } // end method orders PostMapping
-
-
-} //  end class OrderController
+        return "🛒 Корзина успешно обработана! Создан общий заказ №" + savedOrder.getId() +
+                ". Итоговая сумма: " + savedOrder.getTotalPrice() + " руб. Статус: PENDING.";
+    }
+}
