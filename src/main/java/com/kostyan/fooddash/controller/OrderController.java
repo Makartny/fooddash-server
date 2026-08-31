@@ -48,6 +48,10 @@ public class OrderController {
         // 3. АВТОМАТИЧЕСКИЙ РАСЧЁТ СУММЫ ЗАКАЗА НА БЭКЕНДЕ
         Double finalPrice = 0.0;
         for (OrderItem item : basket) {
+            // 🛑 НАШ НОВЫЙ ПРЕДОХРАНИТЕЛЬ:
+            if (item.getQuantity() == null || item.getQuantity() <= 0) {
+                return "❌ Ошибка: Оформление отклонено! Количество товара не может быть меньше 1 или пустым!";
+            }
             // Бежим по корзине: берём цену продукта и умножаем на его количество
             finalPrice += item.getProduct().getPrice() * item.getQuantity();
         }
