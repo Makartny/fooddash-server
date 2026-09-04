@@ -1,13 +1,11 @@
 package com.kostyan.fooddash.controller;
 
+import org.springframework.web.bind.annotation.*;
 import com.kostyan.fooddash.model.Product;
 import com.kostyan.fooddash.repository.ProductRepository;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Optional;
 
 @RestController // Приказ Спрингу: «Этот класс слушает интернет-запросы!»
 public class ProductController {
@@ -37,5 +35,30 @@ public class ProductController {
         return productRepository.save(newProduct);
     }
 
+    // ==========================================
+    // БОЕВАЯ ЗАДАЧА №1: ОБНОВЛЕНИЕ ЦЕНЫ ПРОДУКТА
+    // ==========================================
 
-}
+    @PutMapping("/products/update-price") // Ловим PUT-запрос благодаря нашему импорту!
+    // Откусываем ID из ссылки  //  // Откусываем новую цену из ссылки
+    public String updateProductPrice(@RequestParam Long id, @RequestParam Double newPrice) {
+        // 1. Ищем продукт в Докере через наш встроенный пульт
+        Optional<Product> productFromDb = productRepository.findById(id);
+        // 2. Защитный капкан! Если продукта с таким ID нет — рубим операцию!
+        if (productFromDb.isEmpty()) {
+            return "❌ Ошибка: Продукта с ID " + id + " нет в меню FoodDash!";
+        } // end if
+        // 3. Достаем живой объект продукта из обертки Optional
+        Product realProduct = productFromDb.get();
+        // 4. Запоминаем старую цену для отчета
+        Double oldPrice = realProduct.getPrice();
+        // 5. Переписываем ценник в оперативной памяти Java
+        realProduct.setPrice(newPrice);
+        // 6. Нажимаем кнопку .save(). Hibernate сам поймет, что нужно ОБНОВИТЬ строку, а не создавать новую!
+        productRepository.save(realProduct);
+        return "💰 Цена продукта '" + realProduct.getName() +
+                "' успешно изменена! Старая цена: " + oldPrice + " руб. Новая цена: " + newPrice + " руб.";
+    }
+
+
+} // end class
