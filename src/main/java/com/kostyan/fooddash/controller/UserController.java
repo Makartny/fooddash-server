@@ -2,13 +2,9 @@ package com.kostyan.fooddash.controller;
 
 import com.kostyan.fooddash.model.User;
 import com.kostyan.fooddash.repository.UserRepository;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Optional;
-
-import org.springframework.web.bind.annotation.PatchMapping;
 
 @RestController
 public class UserController {
@@ -106,7 +102,43 @@ public class UserController {
 
         return "🔒 Безопасность обновлена! Пароль для пользователя '" + username +
                 "' успешно захеширован по стандарту BCrypt и перезаписан в Docker!";
-    }
+    } // end changePassword
+
+    // =======================================================
+    // БОЕВАЯ ЗАДАЧА №6: VIP-СТАТУС (АВТО-СМЕНА РОЛИ В ДОКЕРЕ)
+    // =======================================================
+
+    @PostMapping("/users/upgrade-vip") // Ловим POST-запрос
+    public String upgradeUserToVip(@RequestParam String username) {
+        // @RequestParam откусит логин прямо из адресного хвостика ссылки
+
+        // ШАГ 1: Ищем этого человека в Докере через наш пульт userRepository
+        Optional<User> userFromDb = userRepository.findByUsername(username);
+
+        // ШАГ 2: Защитный капкан! Если такого логина вообще нет в базе — рубим операцию!
+        if (userFromDb.isEmpty()) {
+            return "❌ Ошибка: Некого повышать! Пользователь '" + username + "' не зарегистрирован в FoodDash!";
+        } // end if
+
+        User realUser = userFromDb.get();
+
+        // ШАГ 3: Защита от дурака. Если у него УЖЕ стоит роль VIP — незачем мучить жесткий диск!
+        if ("VIP".equals(realUser.getRole())) {
+            return "💎 Хьюстон, у нас отмена! Клиент '" + username + "' уже является VIP-пользователем!";
+        } // end if
+
+        // ШАГ 4: Переписываем ячейку роли в оперативной памяти Java Core
+        realUser.setRole("VIP");
+
+        // ШАГ 5: Нажимаем кнопку .save() на пульте репозитория.
+        // Hibernate видит знакомый ID пользователя и просто обновляет ячейку
+
+        userRepository.save(realUser);
+
+        return "👑 Триумф! Пользователю '" + username + "' официально присвоен элитный статус VIP!" +
+                " Скидка на все бургеры активирована!";
+
+    } // end upgradeUserToVip
 
 
 } // end class UserController

@@ -3,7 +3,9 @@ package com.kostyan.fooddash.controller;
 import org.springframework.web.bind.annotation.*;
 import com.kostyan.fooddash.model.Product;
 import com.kostyan.fooddash.repository.ProductRepository;
+import org.springframework.web.bind.annotation.GetMapping;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -58,6 +60,59 @@ public class ProductController {
         productRepository.save(realProduct);
         return "💰 Цена продукта '" + realProduct.getName() +
                 "' успешно изменена! Старая цена: " + oldPrice + " руб. Новая цена: " + newPrice + " руб.";
+    } // end method updateProductPrice
+
+    // =======================================================
+    // БОЕВАЯ ЗАДАЧА №3: ЦЕНОВОЙ РАДАР (GET + ФИЛЬТР В ССЫЛКЕ)
+    // =======================================================
+    @GetMapping("/products/filter") // ловим GET запрос на адрес "/product/filter"
+    public List<Product> filterProductByPrice(@RequestParam Double maxPrice) {
+        // @RequestParam откусит из ссылки хвостик ?maxPrice=500 и запишет в переменную
+
+        // ШАГ 1: Достаем вообще ВСЕ продукты, которые сейчас есть на складе в Докере
+        List<Product> allProducts = productRepository.findAll();
+
+        // ШАГ 2: Создаем новый пустой список, куда будем складывать только дешевую еду
+        ArrayList<Product> filteredList = new ArrayList<>();
+
+        // ШАГ 3: Запускаем цикл for-each по всем продуктам из базы данных
+        for (Product p : allProducts) {
+            // Если цена конкретного блюда МЕНЬШЕ или РАВНА нашей планке maxPrice
+            if (p.getPrice() <= maxPrice) {
+                filteredList.add(p);// Бережно переносим этот продукт в наш отфильтрованный список!
+            }
+        } // end forEach
+
+        // ШАГ 4: Возвращаем этот список в Postman! Спринг сам превратит его в красивый JSON-массив!
+        return filteredList;
+    }
+
+    // =======================================================
+    // БОЕВАЯ ЗАДАЧА №5: КАПКАН НА БУКВЫ (ЗАЩИТА СЕТЕВОГО ID)
+    // =======================================================
+    @GetMapping("/products/search-safe") // Ловим GET-запрос
+    public String findProductsSafe(@RequestParam String id) {
+        // 🛑 ХАКЕРСКИЙ ХОД: Принимаем id как строку String, чтобы сервер не упал при виде букв!
+
+        // ШАГ 1: Проверяем строку через регулярное выражение.
+        // Символы "\\d+" означают: «Внутри строки должны быть ТОЛЬКО цифры от 0 до 9!»
+        if (!id.matches("\\d+")) {
+            return "❌ Ошибка: Взломать не получится! Переданный ID '" + id
+                    + "' содержит буквы или спецсимволы. Разрешены только цифры!";
+        } // end if
+
+        // ШАГ 2: Если проверка пройдена, мы со спокойной душой превращаем текст в число Long!
+        Long numericId = Long.parseLong(id);
+
+        // ШАГ 3: Ищем продукт в Докере через наш стандартный пульт
+        Optional<Product> productFromDb = productRepository.findById(numericId);
+
+        if (productFromDb.isEmpty()) {
+            return "🔎 Продукт с ID " + numericId + " не найден на складе Докера.";
+        } // end if
+
+        return "🎯 Успех! Найден продукт: '" + productFromDb.get().getName() +
+                "' за " + productFromDb.get().getPrice() + " руб.";
     }
 
 
