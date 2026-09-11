@@ -36,6 +36,16 @@ public class Order {
         this.user = user;
     }
 
+    // =======================================================
+    // РЕЛЯЦИОННЫЙ МОСТ: ПРИВЯЗКА КУРЬЕРА К ОБЩЕМУ ЧЕКУ ЗАКАЗА
+    // =======================================================
+    @ManyToOne // Много заказов к одному курьеру!
+    @JoinColumn(name = "courier_id", nullable = true)
+    // Колонка в Докере будет называться courier_id.
+    // nullable = true означает, что при создании заказа курьера у него изначально может не быть (он еще готовится на кухне)!
+    private Courier courier;
+
+
     // Блок Геттеров и Сеттеров (наши стандартные провода для передачи данных)
     public Long getId() {
         return id;
@@ -67,6 +77,14 @@ public class Order {
 
     public void setUser(User user) {
         this.user = user;
+    }
+
+    public Courier getCourier() {
+        return courier;
+    }
+
+    public void setCourier(Courier courier) {
+        this.courier = courier;
     }
 
 
