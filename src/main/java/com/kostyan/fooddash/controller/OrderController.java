@@ -3,9 +3,11 @@ package com.kostyan.fooddash.controller;
 import com.kostyan.fooddash.model.Order;
 import com.kostyan.fooddash.model.OrderItem;
 import com.kostyan.fooddash.model.User;
+import com.kostyan.fooddash.model.Courier;
 import com.kostyan.fooddash.repository.OrderItemRepository;
 import com.kostyan.fooddash.repository.OrderRepository;
 import com.kostyan.fooddash.repository.UserRepository;
+import com.kostyan.fooddash.repository.CourierRepository;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,12 +19,15 @@ public class OrderController {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final OrderItemRepository orderItemRepository; // Наш третий пульт для корзины
+    private final CourierRepository courierRepository;
 
     // Конструктор: Спринг сам выдаёт нам в руки три этих инструмента из своего сейфа
-    public OrderController(OrderRepository orderRepository, UserRepository userRepository, OrderItemRepository orderItemRepository) {
+    public OrderController(OrderRepository orderRepository, UserRepository userRepository,
+                           OrderItemRepository orderItemRepository, CourierRepository courierRepository) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.orderItemRepository = orderItemRepository;
+        this.courierRepository = courierRepository;
     }
 
     // ===================================================
@@ -236,6 +241,44 @@ public class OrderController {
                 "🚀 Бэкенд-система работает в штатном режиме!";
 
     } // end getRestaurantStats
+
+
+    // =======================================================
+    // 🧱 БОЕВАЯ ЗАДАЧА №18.7: НАЗНАЧЕНИЕ КУРЬЕРА НА ЗАКАЗ (PUT)
+    // =======================================================
+    @PutMapping("/orders/assign-courier") // Точечное обновление чека заказа
+    public String assignCourierToOrder(
+            @RequestParam Long orderId,   // Откусываем ID заказа из ссылки
+            @RequestParam Long courierId  // Откусываем ID курьера из ссылки
+    ) {
+
+        // ШАГ 1: Ищем сам заказ в Докере через пульт orderRepository
+        Optional<Order> orderFromDb = orderRepository.findById(orderId);
+        if (orderFromDb.isEmpty()) {
+            return "❌ Ошибка: Заказ №" + orderId + " не найден в базе данных!";
+        }
+        Order realOrder = orderFromDb.get();
+        // ШАГ 2: Ищем курьера в Докере.
+        // 🛑 ВНИМАНИЕ: Нам нужен пульт courierRepository!
+        // Но внутри класса OrderController этого пульта СЕЙЧАС НЕТ! Мы внедрим его на следующем шаге!
+        Optional<Courier> courierFromDb = courierRepository.findById(courierId);
+        if (courierFromDb.isEmpty()) {
+            return "❌ Ошибка: Курьер с ID " + courierId + " не существует в штате FoodDash!";
+        }
+        Courier realCourier = courierFromDb.get();
+
+        // ШАГ 3: Привязываем курьера к заказу в оперативной памяти Java Core
+        realOrder.setCourier(realCourier);
+
+        // ШАГ 4: Автоматически меняем статус заказа на доставку!
+        realOrder.setStatus("DELIVERING");
+
+        // ШАГ 5: Сохраняем обновленный чек обратно в Докер!
+        orderRepository.save(realOrder);
+
+        return "🚚 Курьер-офис: Курьер '" + realCourier.getName() +
+                "' успешно назначен на Заказ №" + realOrder.getId() + "! Статус изменен на DELIVERING.";
+    } // assignCourierToOrder
 
 
 } // end class OrderController
